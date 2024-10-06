@@ -49,7 +49,7 @@ def run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_
     bboxes = []  # 存储每个 bounding box 的图像区域
     annotated_segments = []
     for segment in segments:
-        segment_transformed, _ = transform(Image.fromarray(segment), None)
+        segment_transformed = transform(Image.fromarray(segment), None)[0]
         boxes, logits, phrases = predict(
             model=model,
             device="cpu",
