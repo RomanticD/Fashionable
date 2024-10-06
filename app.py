@@ -46,24 +46,10 @@ def pad_image(image, target_size):
 
 # 4. 定义推理函数（略微调整以适应绝对路径）
 def run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_WINDOW):
-    bboxes = []
+    bboxes = []  # 存储每个 bounding box 的图像区域
     annotated_segments = []
     for segment in segments:
-        try:
-            # 调整 transform 调用，根据实际返回值
-            transformed_output = transform(Image.fromarray(segment), None)
-            st.write(f'Transform output length: {len(transformed_output)}')
-            st.write(f'Transform output: {transformed_output}')
-
-            # 根据返回值数量调整解包
-            if isinstance(transformed_output, tuple):
-                segment_transformed, *other = transformed_output
-            else:
-                segment_transformed = transformed_output
-        except ValueError as ve:
-            st.error(f"Transform 解包错误: {ve}")
-            return bboxes
-
+        segment_transformed, _ = transform(Image.fromarray(segment), None)
         boxes, logits, phrases = predict(
             model=model,
             device="cpu",
@@ -75,21 +61,22 @@ def run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_
         annotated_segment, detection = annotate(segment, boxes=boxes, logits=logits, phrases=phrases)
         annotated_segments.append(annotated_segment)
 
+        # 提取每个 bounding box 的图像区域并存储在 bboxes 列表中
         for box in detection.xyxy:
             x1, y1, x2, y2 = map(int, box)
             bbox_width = x2 - x1
             bbox_height = y2 - y1
+            # 过滤掉宽度小于1/5图像宽度的bbox
             if bbox_width >= max(160, segment.shape[1] / 5) and bbox_height >= bbox_width:
                 bbox_image = segment[y1:y2, x1:x2]
                 bboxes.append(bbox_image)
 
-    annotated_image = combine_segments_vertically(
-        annotated_segments,
-        segments[0].shape[0] * len(segments),
-        segments[0].shape[1]
-    )
+    # 拼接所有注释过的段以形成完整图像
+    annotated_image = combine_segments_vertically(annotated_segments, segments[0].shape[0] * len(segments),
+                                                  segments[0].shape[1])
     FRAME_WINDOW.image(annotated_image, channels='BGR')
     return bboxes
+
 
 # 5. Streamlit 应用布局
 st.title('服装款式相似性检测')
