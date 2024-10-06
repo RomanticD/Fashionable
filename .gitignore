@@ -1,0 +1,9 @@
+*.idea
+
+/GroundingDINO
+/ScreenShots
+
+*.xlsx
+*.docx
+*.pth
+*.mp4
