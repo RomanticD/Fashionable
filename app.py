@@ -2,34 +2,17 @@ import sys
 import os
 from pathlib import Path
 
-
-# 设置 Python 路径
+# 1. 设置 Python 路径
 current_dir = Path(__file__).parent.resolve()
 groundingdino_path = current_dir / 'GroundingDINO'
 sys.path.append(str(groundingdino_path))
 
-# 导入必要的库
+# 2. 导入必要的库
 import streamlit as st
 from GroundingDINO.groundingdino.util.inference import load_model, load_image, predict, annotate
 import numpy as np
 import GroundingDINO.groundingdino.datasets.transforms as T
 from PIL import Image
-
-
-class ImageOnlyTransform:
-    def __init__(self, transform):
-        self.transform = transform
-
-    def __call__(self, image):
-        image = self.transform(image)
-        return image
-
-
-transform = T.Compose([
-    ImageOnlyTransform(T.RandomResize([800], max_size=1333)),
-    ImageOnlyTransform(T.ToTensor()),
-    ImageOnlyTransform(T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])),
-])
 
 
 # 3. 定义图像处理函数（保持不变）
@@ -66,17 +49,7 @@ def run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_
     bboxes = []  # 存储每个 bounding box 的图像区域
     annotated_segments = []
     for segment in segments:
-        print(f"Processing segment with shape: {segment.shape}")
-        # 使用包装后的 transform
-        try:
-            segment_transformed = transform(Image.fromarray(segment), None)
-            if isinstance(segment_transformed, tuple):
-                segment_transformed = segment_transformed[0]
-            print(f"Segment transformed successfully.")
-        except Exception as e:
-            st.error(f"Transform 过程中出错: {e}")
-            st.stop()
-
+        segment_transformed, _ = transform(Image.fromarray(segment), None)
         boxes, logits, phrases = predict(
             model=model,
             device="cpu",
@@ -85,10 +58,6 @@ def run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_
             box_threshold=BOX_THRESHOLD,
             text_threshold=0.25
         )
-        print(f"Predict output: boxes={boxes}, logits={logits}, phrases={phrases}")  # 添加调试输出
-
-        print(f"Calling annotate with boxes={boxes}, logits={logits}, phrases={phrases}")
-
         annotated_segment, detection = annotate(segment, boxes=boxes, logits=logits, phrases=phrases)
         annotated_segments.append(annotated_segment)
 
@@ -151,16 +120,7 @@ clothes_bboxes = []
 if upload_img_file is not None:
     img = Image.open(upload_img_file).convert("RGB")
     image = np.asarray(img)
-    # image_transformed = transform(img, None)
-    try:
-        segment_transformed = transform(img, None)
-        print(f"Transform output: {segment_transformed}")
-    # 进行解包
-        if isinstance(segment_transformed, tuple):
-            segment_transformed = segment_transformed[0]
-    except Exception as e:
-        st.error(f"Transform 过程中出错: {e}")
-        st.stop()
+    image_transformed, _ = transform(img, None)
 
     # 设定分段长度为图像宽度的3倍
     segment_height = image.shape[1] * 3
@@ -169,8 +129,6 @@ if upload_img_file is not None:
 
 # 触发:服装检测
 if st.button('检测页面中的服装'):
-    if 'segments' not in locals():  # 检查 segments 是否已定义
-        st.error("请先上传一张图像进行处理。")
     try:
         clothes_bboxes = run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_WINDOW)
         # 在结果图下方显示所有返回的 clothes_bboxes 图像
