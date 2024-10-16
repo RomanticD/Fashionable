@@ -223,3 +223,6 @@ yapf==0.40.2
 zipp==3.19.2
 -e ./GroundingDINO  # 将 GroundingDINO 本地路径作为依赖
 
+
+mmcv~=2.2.0
+datasets~=3.0.1

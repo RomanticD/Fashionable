@@ -1,6 +1,9 @@
 import sys
 import os
 from pathlib import Path
+from PIL import Image
+import numpy as np
+import streamlit as st
 
 # 1. 设置 Python 路径
 current_dir = Path(__file__).parent.resolve()
@@ -8,11 +11,12 @@ groundingdino_path = current_dir / 'GroundingDINO'
 sys.path.append(str(groundingdino_path))
 
 # 2. 导入必要的库
-import streamlit as st
 from GroundingDINO.groundingdino.util.inference import load_model, load_image, predict, annotate
-import numpy as np
 import GroundingDINO.groundingdino.datasets.transforms as T
-from PIL import Image
+
+
+if 'clothes_bboxes' not in st.session_state:
+    st.session_state.clothes_bboxes = []
 
 
 # 3. 定义图像处理函数（保持不变）
@@ -130,21 +134,21 @@ if upload_img_file is not None:
 # 触发:服装检测
 if st.button('检测页面中的服装'):
     try:
-        clothes_bboxes = run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_WINDOW)
+        st.session_state.clothes_bboxes = run_inference(model, transform, segments, TEXT_PROMPT, BOX_THRESHOLD, FRAME_WINDOW)
         # 在结果图下方显示所有返回的 clothes_bboxes 图像
         st.write("检测到的服装区域：")
-        for idx, bbox in enumerate(clothes_bboxes):
+        for idx, bbox in enumerate(st.session_state.clothes_bboxes):
             st.image(bbox, caption=f"服装 {idx + 1}")
     except Exception as e:
         st.error(f"检测过程中出错: {e}")
 
 # 添加按钮以触发相似度检测
 if st.button('检测服装相似度'):
-    if not clothes_bboxes:
+    if not st.session_state.clothes_bboxes:
         st.write("请先点击‘检测页面中的服装’按钮进行检测。")
     else:
         st.write("潜在的雷同款式：")
-        for idx, bbox in enumerate(clothes_bboxes):
+        for idx, bbox in enumerate(st.session_state.clothes_bboxes):
             # 将 bbox 保存为临时图像文件
             bbox_image = Image.fromarray(bbox)
             tmp_image_path = './img_tmp/intermd.jpg'
@@ -152,7 +156,7 @@ if st.button('检测服装相似度'):
             bbox_image.save(tmp_image_path)
 
             # 调用 mmfashion_retrieval.py 进行检测
-            os.system(f"python3 ./mmfashion_retrieval.py --input {tmp_image_path}")
+            os.system(f"python3 mmfashion/tools/test_retriever.py --input {tmp_image_path}")
 
             # 显示检测结果图像
             output_image_path = './output.png'
